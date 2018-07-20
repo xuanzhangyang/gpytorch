@@ -8,8 +8,10 @@ from .modules import (
     UpperConfidenceBound,
 )
 
-from .batch_modules import (
-    qExpectedImprovement,
-    qProbabilityOfImprovement,
-    qUpperConfidenceBound,
-)
+__all__ = [
+    AcquisitionFunction,
+    ExpectedImprovement,
+    MaxValueEntropySearch,
+    ProbabilityOfImprovement,
+    UpperConfidenceBound,
+]
