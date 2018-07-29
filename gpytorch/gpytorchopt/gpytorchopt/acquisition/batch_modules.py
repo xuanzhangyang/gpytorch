@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 from gpytorch import Module
 from .modules import AcquisitionFunction
 from .functional import batch_expected_improvement
