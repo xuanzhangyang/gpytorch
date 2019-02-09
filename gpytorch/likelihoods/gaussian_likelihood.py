@@ -6,6 +6,7 @@ from torch.nn.functional import softplus
 
 from .. import settings
 from ..distributions import MultivariateNormal
+from ..lazy import DiagLazyTensor
 from ..likelihoods import Likelihood
 from .noise_models import HomoskedasticNoise
 
@@ -94,12 +95,8 @@ class GaussianLikelihood(_GaussianLikelihoodBase):
 
         y_dist = pyro.distributions.Independent(
             pyro.distributions.Normal(y_mean, (var_f + noise.expand_as(var_f)).sqrt()),
-            reinterpreted_batch_ndims=y_mean.dim(),
+            reinterpreted_batch_ndims=1,
         )
 
-        # See if we're using a sampled GP distribution
-        # Samples will occur in the first batch dimension
-        sample_shape = y_dist.shape()[:-y_obs.dim()]
-        y_obs = y_obs.expand(y_dist.shape())
-        with pyro.poutine.scale(scale=float(1. / sample_shape.numel())):
-            pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)
+        with pyro.plate(name_prefix + "._data_loop", dim=-1):
+            sample = pyro.sample(name_prefix + "._training_labels", y_dist, obs=y_obs)
