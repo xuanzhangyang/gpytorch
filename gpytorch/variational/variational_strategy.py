@@ -139,8 +139,8 @@ class VariationalStrategy(Module):
                 with torch.no_grad():
                     eager_rhs = torch.cat([left_tensors, induc_data_covar], -1)
                     solve, probe_vecs, probe_vec_norms, probe_vec_solves, tmats = CachedCGLazyTensor.precompute_terms(
-                        induc_induc_covar, eager_rhs.detach(), logdet_terms=self.training,
-                        include_tmats=(not settings.skip_logdet_forward.on())
+                        induc_induc_covar, eager_rhs.detach(), logdet_terms=settings.fast_computations.log_prob.on(),
+                        include_tmats=settings.skip_logdet_forward.off()
                     )
                     eager_rhss = [
                         eager_rhs.detach(), eager_rhs[..., left_tensors.size(-1):].detach(),
@@ -164,9 +164,7 @@ class VariationalStrategy(Module):
             predictive_mean = torch.add(test_mean, inv_products[..., 0, :])
             predictive_covar = RootLazyTensor(inv_products[..., 1:, :].transpose(-1, -2))
             if beta_features.diagonal_correction.on():
-                interp_data_data_var, _ = induc_induc_covar.inv_quad_logdet(
-                    induc_data_covar, logdet=False, reduce_inv_quad=False
-                )
+                interp_data_data_var = induc_induc_covar.inv_quad(induc_data_covar, reduce_inv_quad=False)
                 diag_correction = DiagLazyTensor((data_data_covar.diag() - interp_data_data_var).clamp(0, math.inf))
                 predictive_covar = PsdSumLazyTensor(predictive_covar, diag_correction)
 

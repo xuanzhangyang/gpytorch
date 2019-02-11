@@ -21,6 +21,9 @@ class CholLazyTensor(RootLazyTensor):
         # Run super constructor
         super(CholLazyTensor, self).__init__(chol)
 
+    def _cholesky(self):
+        return self.root
+
     @property
     def _chol(self):
         if not hasattr(self, "_chol_memo"):
@@ -34,15 +37,5 @@ class CholLazyTensor(RootLazyTensor):
         return self._chol_diag_memo
 
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
-        inv_quad_term = None
-        logdet_term = None
-
-        if inv_quad_rhs is not None:
-            inv_quad_term, _ = super(CholLazyTensor, self).inv_quad_logdet(
-                inv_quad_rhs, logdet=False, reduce_inv_quad=reduce_inv_quad
-            )
-
-        if logdet:
-            logdet_term = self._chol_diag.pow(2).log().sum(-1)
-
-        return inv_quad_term, logdet_term
+        with settings.fast_computations.log_prob(False):
+            return super().inv_quad_logdet(inv_quad_rhs=inv_quad_rhs, logdet=logdet, reduce_inv_quad=reduce_inv_quad)

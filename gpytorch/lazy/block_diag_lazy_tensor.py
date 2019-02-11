@@ -35,6 +35,12 @@ class BlockDiagLazyTensor(BlockLazyTensor):
     def _cholesky(self):
         return self.__class__(self.base_lazy_tensor._cholesky())
 
+    def _cholesky_solve(self, rhs):
+        rhs = self._add_batch_dim(rhs)
+        res = self._cholesky.base_lazy_tensor._cholesky_solve(rhs)
+        res = self._remove_batch_dim(rhs)
+        return res
+
     def _remove_batch_dim(self, other):
         shape = list(other.shape)
         del shape[-3]

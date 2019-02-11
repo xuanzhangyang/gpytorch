@@ -101,7 +101,10 @@ class InvQuadLogDet(Function):
             solves, t_mat = lazy_tsr._solve(rhs, preconditioner, num_tridiag=num_random_probes)
 
         else:
-            solves = lazy_tsr._solve(rhs, preconditioner, num_tridiag=0)
+            if settings.fast_computations.log_prob.on():
+                solves = lazy_tsr._solve(rhs, preconditioner, num_tridiag=0)
+            else:
+                solves = lazy_tsr._cholesky()._cholesky_solve(rhs)
 
         # Final values to return
         logdet_term = torch.zeros(lazy_tsr.batch_shape, dtype=self.dtype, device=self.device)

@@ -14,7 +14,7 @@ from ..functions._matmul import Matmul
 from ..functions._root_decomposition import RootDecomposition
 from ..utils import linear_cg
 from ..utils.broadcasting import _matmul_broadcast_shape, _mul_broadcast_shape
-from ..utils.cholesky import psd_safe_cholesky
+from ..utils.cholesky import psd_safe_cholesky, cholesky_solve
 from ..utils.deprecation import _deprecate_renamed_methods
 from ..utils.getitem import _noop_index, _tensor_index_to_start
 from ..utils.memoize import add_to_cache, cached
@@ -371,9 +371,23 @@ class LazyTensor(ABC):
             This method is used as an internal helper. Calling this method directly is discouraged.
 
         Returns:
-            (Tensor or LazyTensor) Cholesky factor
+            (LazyTensor) Cholesky factor
         """
-        return psd_safe_cholesky(self.evaluate())
+        from .non_lazy_tensor import NonLazyTensor
+        cholesky = psd_safe_cholesky(self.evaluate().double()).to(self.dtype)
+        return NonLazyTensor(cholesky)
+
+    def _cholesky_solve(self, rhs):
+        """
+        (Optional) Assuming that `self` is a Cholesky factor, computes the cholesky solve
+
+        ..note::
+            This method is used as an internal helper. Calling this method directly is discouraged.
+
+        Returns:
+            (LazyTensor) Cholesky factor
+        """
+        return cholesky_solve(rhs.double(), self.evaluate().double()).to(self.dtype)
 
     def _inv_matmul_preconditioner(self):
         """
@@ -902,19 +916,53 @@ class LazyTensor(ABC):
         args = self.representation()
         if inv_quad_rhs is not None:
             args = [inv_quad_rhs] + list(args)
-
         probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
-        inv_quad_term, logdet_term = InvQuadLogDet(
-            representation_tree=self.representation_tree(),
-            matrix_shape=self.matrix_shape,
-            batch_shape=self.batch_shape,
-            dtype=self.dtype,
-            device=self.device,
-            inv_quad=(inv_quad_rhs is not None),
-            logdet=logdet,
-            probe_vectors=probe_vectors,
-            probe_vector_norms=probe_vector_norms,
-        )(*args)
+
+        if settings.fast_computations.log_prob.on():
+            args = self.representation()
+            if inv_quad_rhs is not None:
+                args = [inv_quad_rhs] + list(args)
+            probe_vectors, probe_vector_norms = self._probe_vectors_and_norms()
+            inv_quad_term, logdet_term = InvQuadLogDet(
+                representation_tree=self.representation_tree(),
+                matrix_shape=self.matrix_shape,
+                batch_shape=self.batch_shape,
+                dtype=self.dtype,
+                device=self.device,
+                inv_quad=(inv_quad_rhs is not None),
+                logdet=logdet,
+                probe_vectors=probe_vectors,
+                probe_vector_norms=probe_vector_norms,
+            )(*args)
+
+        else:
+            from .chol_lazy_tensor import CholLazyTensor
+
+            cholesky = CholLazyTensor(self._cholesky())
+
+            if inv_quad_rhs is not None:
+                args = cholesky.representation()
+                if inv_quad_rhs is not None:
+                    args = [inv_quad_rhs] + list(args)
+                probe_vectors, probe_vector_norms = cholesky._probe_vectors_and_norms()
+                inv_quad_term, _ = InvQuadLogDet(
+                    representation_tree=cholesky.representation_tree(),
+                    matrix_shape=cholesky.matrix_shape,
+                    batch_shape=cholesky.batch_shape,
+                    dtype=cholesky.dtype,
+                    device=cholesky.device,
+                    inv_quad=(inv_quad_rhs is not None),
+                    logdet=False,
+                    probe_vectors=probe_vectors,
+                    probe_vector_norms=probe_vector_norms,
+                )(*args)
+            else:
+                inv_quad_term = torch.tensor([], dtype=self.dtype, device=self.device)
+
+            if logdet:
+                logdet_term = cholesky.root.diag().log().mul(2).sum(-1)
+            else:
+                logdet_term = torch.tensor([], dtype=self.dtype, device=self.device)
 
         if inv_quad_term.numel() and reduce_inv_quad:
             inv_quad_term = inv_quad_term.sum(-1)

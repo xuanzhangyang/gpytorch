@@ -65,27 +65,27 @@ class TestSVGPRegression(unittest.TestCase):
         model.train()
         likelihood.train()
         optimizer = optim.Adam([{"params": model.parameters()}, {"params": likelihood.parameters()}], lr=0.01)
-        with gpytorch.settings.skip_logdet_forward(skip_logdet_forward):
-            for _ in range(170):
+        with gpytorch.settings.fast_computations(log_prob=False):
+            for _ in range(10):
                 optimizer.zero_grad()
                 output = model(train_x)
                 loss = -mll(output, train_y)
                 loss.backward()
                 optimizer.step()
 
-        for param in model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
+            for param in model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
 
-        # Set back to eval mode
-        model.eval()
-        likelihood.eval()
-        test_preds = likelihood(model(train_x)).mean.squeeze()
-        mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
-        self.assertLess(mean_abs_error.item(), 1e-1)
+            # Set back to eval mode
+            model.eval()
+            likelihood.eval()
+            test_preds = likelihood(model(train_x)).mean.squeeze()
+            mean_abs_error = torch.mean(torch.abs(train_y - test_preds) / 2)
+            self.assertLess(mean_abs_error.item(), 1e-1)
 
     def test_regression_error_skip_logdet_forward(self):
         return self.test_regression_error(skip_logdet_forward=True)

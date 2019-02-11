@@ -30,6 +30,9 @@ class DiagLazyTensor(LazyTensor):
     def _cholesky(self):
         return self.sqrt()
 
+    def _cholesky_solve(self, rhs):
+        return rhs / self._diag.pow(2)
+
     def _expand_batch(self, batch_shape):
         return self.__class__(self._diag.expand(*batch_shape, self._diag.size(-1)))
 

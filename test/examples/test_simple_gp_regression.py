@@ -195,31 +195,32 @@ class TestSimpleGPRegression(unittest.TestCase):
         likelihood.train()
         optimizer = optim.Adam(list(gp_model.parameters()) + list(likelihood.parameters()), lr=0.15)
         optimizer.n_iter = 0
-        for _ in range(50):
-            optimizer.zero_grad()
-            with gpytorch.settings.debug(False):
-                output = gp_model(train_x)
-            loss = -mll(output, train_y)
-            loss.backward()
-            optimizer.n_iter += 1
+        with gpytorch.settings.fast_computations(log_prob=False):
+            for _ in range(50):
+                optimizer.zero_grad()
+                with gpytorch.settings.debug(False):
+                    output = gp_model(train_x)
+                loss = -mll(output, train_y)
+                loss.backward()
+                optimizer.n_iter += 1
+                optimizer.step()
+
+            for param in gp_model.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
+            for param in likelihood.parameters():
+                self.assertTrue(param.grad is not None)
+                self.assertGreater(param.grad.norm().item(), 0)
             optimizer.step()
 
-        for param in gp_model.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        for param in likelihood.parameters():
-            self.assertTrue(param.grad is not None)
-            self.assertGreater(param.grad.norm().item(), 0)
-        optimizer.step()
+            # Test the model
+            gp_model.eval()
+            likelihood.eval()
+            with gpytorch.settings.skip_posterior_variances(True):
+                test_function_predictions = likelihood(gp_model(test_x))
+            mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean))
 
-        # Test the model
-        gp_model.eval()
-        likelihood.eval()
-        with gpytorch.settings.skip_posterior_variances(True):
-            test_function_predictions = likelihood(gp_model(test_x))
-        mean_abs_error = torch.mean(torch.abs(test_y - test_function_predictions.mean))
-
-        self.assertLess(mean_abs_error.item(), 0.05)
+            self.assertLess(mean_abs_error.item(), 0.05)
 
     def test_fantasy_updates_cuda(self):
         if torch.cuda.is_available():
