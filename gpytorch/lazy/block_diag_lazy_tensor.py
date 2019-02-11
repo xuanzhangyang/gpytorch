@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 
 import torch
-
-from .. import settings
-from ..utils.cholesky import psd_safe_cholesky
-from ..utils.memoize import cached
 from .block_lazy_tensor import BlockLazyTensor
-from .non_lazy_tensor import NonLazyTensor
-from .root_lazy_tensor import RootLazyTensor
+from ..utils.memoize import cached
 
 
 class BlockDiagLazyTensor(BlockLazyTensor):
@@ -36,12 +31,22 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         other = other.view(*batch_shape, num_rows // self.num_blocks, num_cols)
         return other
 
+    @cached(name="cholesky")
+    def _cholesky(self):
+        return self.__class__(self.base_lazy_tensor._cholesky())
+
     def _remove_batch_dim(self, other):
         shape = list(other.shape)
         del shape[-3]
         shape[-2] *= self.num_blocks
         other = other.contiguous().view(*shape)
         return other
+
+    def _root_decomposition(self):
+        return self.__class__(self.base_lazy_tensor._root_decomposition())
+
+    def _root_inv_decomposition(self, initial_vectors):
+        return self.__class__(self.base_lazy_tensor._root_inv_decomposition(initial_vectors))
 
     def _size(self):
         shape = list(self.base_lazy_tensor.shape)
@@ -70,12 +75,3 @@ class BlockDiagLazyTensor(BlockLazyTensor):
         if logdet_res is not None and logdet_res.numel():
             logdet_res = logdet_res.view(*logdet_res.shape).sum(-1)
         return inv_quad_res, logdet_res
-
-    @cached(name="root_decomposition")
-    def root_decomposition(self):
-        if settings.fast_computations.covar_root_decomposition.on():
-            res = self.__class__(self.base_lazy_tensor.root_decomposition().root)
-        else:
-            chol = psd_safe_cholesky(self.base_lazy_tensor.evaluate())
-            res = self.__class__(NonLazyTensor(chol))
-        return RootLazyTensor(res)
