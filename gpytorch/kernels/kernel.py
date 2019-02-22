@@ -128,7 +128,7 @@ class Kernel(Module):
         self,
         has_lengthscale=False,
         ard_num_dims=None,
-        batch_size=1,
+        batch_shape=torch.Size([1]),
         active_dims=None,
         lengthscale_prior=None,
         param_transform=softplus,
@@ -136,12 +136,12 @@ class Kernel(Module):
         eps=1e-6,
         **kwargs
     ):
-        super(Kernel, self).__init__()
+        super().__init__()
         if active_dims is not None and not torch.is_tensor(active_dims):
             active_dims = torch.tensor(active_dims, dtype=torch.long)
         self.register_buffer("active_dims", active_dims)
         self.ard_num_dims = ard_num_dims
-        self.batch_size = batch_size
+        self.batch_shape = batch_shape
         self.__has_lengthscale = has_lengthscale
         self._param_transform = param_transform
         self._inv_param_transform = _get_inv_param_transform(param_transform, inv_param_transform)
@@ -149,7 +149,7 @@ class Kernel(Module):
             self.eps = eps
             lengthscale_num_dims = 1 if ard_num_dims is None else ard_num_dims
             self.register_parameter(
-                name="raw_lengthscale", parameter=torch.nn.Parameter(torch.zeros(batch_size, 1, lengthscale_num_dims))
+                name="raw_lengthscale", parameter=torch.nn.Parameter(torch.zeros(*batch_shape, 1, lengthscale_num_dims))
             )
             if lengthscale_prior is not None:
                 self.register_prior(
@@ -184,11 +184,8 @@ class Kernel(Module):
         self.initialize(raw_lengthscale=self._inv_param_transform(value))
 
     def size(self, x1, x2):
-        non_batch_size = (x1.size(-2), x2.size(-2))
-        if x1.ndimension() == 3:
-            return torch.Size((x1.size(0),) + non_batch_size)
-        else:
-            return torch.Size(non_batch_size)
+        non_batch_shape = torch.Size([x1.size(-2), x2.size(-2)])
+        return x1.shape[:-2] + non_batch_shape
 
     @abstractmethod
     def forward(self, x1, x2, diag=False, batch_dims=None, **params):

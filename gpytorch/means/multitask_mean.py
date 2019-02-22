@@ -20,7 +20,7 @@ class MultitaskMean(Mean):
                 If a single mean (or a list containing a single mean), that mean is copied `t` times.
             num_tasks (int): Number of tasks. If base_means is a list, this should equal its length.
         """
-        super(MultitaskMean, self).__init__()
+        super().__init__()
 
         if isinstance(base_means, Mean):
             base_means = [base_means]
