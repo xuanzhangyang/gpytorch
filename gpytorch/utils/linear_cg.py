@@ -277,6 +277,8 @@ def linear_cg(
     # Un-normalize
     result.mul_(rhs_norm)
 
+    print('Final CG residual norm after {} iterations: {}'.format(residual_norm.mean().item(), k))
+
     if is_vector:
         result = result.squeeze(-1)
 

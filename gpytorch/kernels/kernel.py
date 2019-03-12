@@ -8,6 +8,7 @@ from ..module import Module
 from .. import settings
 from ..utils.transforms import _get_inv_param_transform
 from torch.nn.functional import softplus
+import math
 
 
 @torch.jit.script
@@ -167,7 +168,7 @@ class Kernel(Module):
     @property
     def lengthscale(self):
         if self.has_lengthscale:
-            return self._param_transform(self.raw_lengthscale).clamp(self.eps, 1e5)
+            return self._param_transform(self.raw_lengthscale).clamp(self.eps, math.inf)
         else:
             return None
 
