@@ -249,7 +249,11 @@ class DefaultPredictionStrategy(object):
             mean_cache = train_train_covar.inv_matmul(train_labels_offset).squeeze(-1)
         else:
             # Standard mode
-            mean_cache = train_train_covar.inv_matmul(train_labels_offset)
+            if settings.fast_computations.covar_root_decomposition.off():
+                full_covar_matrix = train_train_covar.evaluate()
+                mean_cache = torch.cholesky_solve(train_labels_offset.unsqueeze(-1), torch.cholesky(full_covar_matrix)).squeeze(-1)
+            else:
+                mean_cache = train_train_covar.inv_matmul(train_labels_offset)
 
         if settings.detach_test_caches.on():
             return mean_cache.detach()
