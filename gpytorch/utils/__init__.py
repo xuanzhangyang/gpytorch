@@ -2,7 +2,7 @@
 
 from .memoize import cached
 from .linear_cg import linear_cg
-from .contour_integral_quad import sqrt_matmul
+from .contour_integral_quad import sqrt_matmul, sqrt_matmul_fast_approx
 from .stochastic_lq import StochasticLQ
 from . import batch
 from . import broadcasting
@@ -45,4 +45,5 @@ __all__ = [
     "quadrature",
     "sparse",
     "sqrt_matmul",
+    "sqrt_matmul_fast_approx",
 ]
