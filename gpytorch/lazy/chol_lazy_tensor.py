@@ -21,6 +21,9 @@ class CholLazyTensor(RootLazyTensor):
         # Run super constructor
         super(CholLazyTensor, self).__init__(chol)
 
+    def _cholesky(self):
+        return self.root
+
     @property
     def _chol(self):
         if not hasattr(self, "_chol_memo"):
