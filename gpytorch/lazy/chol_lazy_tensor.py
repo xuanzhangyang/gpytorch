@@ -36,6 +36,10 @@ class CholLazyTensor(RootLazyTensor):
             self._chol_diag_memo = self._chol.diagonal(dim1=-2, dim2=-1).clone()
         return self._chol_diag_memo
 
+    def inv_matmul(self, right_tensor, left_tensor=None):
+        with settings.fast_computations(solves=False):
+            return super().inv_matmul(right_tensor, left_tensor=left_tensor)
+
     def inv_quad_logdet(self, inv_quad_rhs=None, logdet=False, reduce_inv_quad=True):
         inv_quad_term = None
         logdet_term = None
