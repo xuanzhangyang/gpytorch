@@ -800,7 +800,13 @@ class LazyTensor(ABC):
                 # torch.potrs doesn't let you run with vectors why
                 right_tensor = right_tensor.unsqueeze(-1)
                 squeeze_res = True
-            res = torch.potrs(right_tensor, self.evaluate().cholesky(), upper=False)
+
+            def potrs_with_derivative(rhs, L):
+                solve = torch.trtrs(rhs, L, upper=False)[0]
+                solve = torch.trtrs(solve, L.transpose(-2, -1), upper=True)[0]
+                return solve
+            res = potrs_with_derivative(right_tensor, self.evaluate().cholesky())
+
             if squeeze_res:
                 res = res.squeeze(-1)
             return res
